@@ -8,6 +8,7 @@ import { CategoryService } from '../../services/category.service';
 import { CategorySummary } from '../../core/models/dashboard.model';
 import { CurrencyEurPipe } from '../../shared/pipes/currency-format.pipe';
 import { ProgressBarComponent } from '../../shared/components/ui/progress-bar.component';
+import { parseLocalDate } from '../../shared/utils/local-date';
 
 @Component({
   selector: 'app-dashboard',
@@ -376,12 +377,12 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const period = this.state.selectedPeriod();
-    this.dashboardService.loadDashboard(period.year, period.month).subscribe();
+    this.dashboardService.loadDashboard().subscribe();
   }
 
   navigatePeriod(delta: number): void {
-    const current = this.state.selectedPeriod();
+    const current = this.state.selectedPeriod() ?? this.dashboardData()?.period;
+    if (!current) return;
     let { year, month } = current;
     month += delta;
     if (month > 12) { month = 1; year++; }
@@ -392,9 +393,9 @@ export class DashboardComponent implements OnInit {
   }
 
   isCurrentPeriod(): boolean {
-    const now = new Date();
-    const period = this.state.selectedPeriod();
-    return period.year === now.getFullYear() && period.month === (now.getMonth() + 1);
+    const period = this.dashboardData()?.period;
+    // No navigating past the current period; yyyy-MM-dd strings compare correctly as text
+    return !period || period.today <= period.periodEnd;
   }
 
   formatPeriodLabel(): string {
@@ -407,8 +408,8 @@ export class DashboardComponent implements OnInit {
   formatPeriodRange(): string {
     const period = this.dashboardData()?.period;
     if (!period) return '';
-    const start = new Date(period.periodStart);
-    const end = new Date(period.periodEnd);
+    const start = parseLocalDate(period.periodStart);
+    const end = parseLocalDate(period.periodEnd);
     const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return `${fmt(start)} – ${fmt(end)}`;
   }
