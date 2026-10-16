@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model IncomeConfig {
+  id            String   @id @default(cuid())
+  monthlyAmount Decimal  @db.Decimal(12, 2)
+  incomeDay     Int
+  updatedAt     DateTime @updatedAt
+
+  @@map("income_config")
+}
+
+model Category {
+  id              String        @id @default(cuid())
+  name            String
+  icon            String        @default("tag")
+  color           String        @default("#6366f1")
+  allocatedAmount Decimal       @db.Decimal(12, 2)
+  activeMonths    Int[]         @default([])
+  sortOrder       Int           @default(0)
+  isActive        Boolean       @default(true)
+  isUnbudgeted    Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  expenses        Expense[]
+  subcategories   Subcategory[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id         String    @id @default(cuid())
+  categoryId String
+  name       String
+  amount     Decimal   @db.Decimal(12, 2)
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  category   Category  @relation(fields: [categoryId], references: [id])
+  expenses   Expense[]
+
+  @@index([categoryId])
+  @@map("subcategories")
+}
+
+model Expense {
+  id            String       @id @default(cuid())
+  categoryId    String
+  subcategoryId String?
+  amount        Decimal      @db.Decimal(12, 2)
+  description   String
+  expenseDate   DateTime     @db.Date
+  createdAt     DateTime     @default(now())
+  category      Category     @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
