@@ -9,10 +9,8 @@ export class BudgetStateService {
   private readonly _categories = signal<Category[]>([]);
   private readonly _dashboardData = signal<DashboardData | null>(null);
   private readonly _isLoadingDashboard = signal(false);
-  private readonly _selectedPeriod = signal<{ year: number; month: number }>({
-    year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
-  });
+  /** null = the period containing today, as resolved by the backend */
+  private readonly _selectedPeriod = signal<{ year: number; month: number } | null>(null);
 
   readonly incomeConfig = this._incomeConfig.asReadonly();
   readonly categories = this._categories.asReadonly();

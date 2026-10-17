@@ -13,14 +13,19 @@ export class DashboardService {
 
   loadDashboard(year?: number, month?: number) {
     const period = this.state.selectedPeriod();
-    const y = year ?? period.year;
-    const m = month ?? period.month;
+    const y = year ?? period?.year;
+    const m = month ?? period?.month;
+    const params: Record<string, number> = {};
+    if (y !== undefined && m !== undefined) {
+      params['year'] = y;
+      params['month'] = m;
+    }
 
     this.state.setLoadingDashboard(true);
 
     return this.http
       .get<DashboardData>(`${environment.apiUrl}/dashboard`, {
-        params: { year: y, month: m },
+        params,
       })
       .pipe(
         tap((data) => {

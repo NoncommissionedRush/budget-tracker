@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import Decimal from 'decimal.js';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -69,6 +69,16 @@ export class CategoriesService {
   }
 
   async reorder(dto: ReorderCategoriesDto) {
+    const found = await this.prisma.category.findMany({
+      where: { id: { in: dto.order }, isActive: true },
+      select: { id: true },
+    });
+    const foundIds = new Set(found.map((c) => c.id));
+    const unknown = dto.order.filter((id) => !foundIds.has(id));
+    if (unknown.length > 0) {
+      throw new BadRequestException(`Unknown or inactive categories: ${unknown.join(', ')}`);
+    }
+
     const updates = dto.order.map((id, index) =>
       this.prisma.category.update({
         where: { id },
