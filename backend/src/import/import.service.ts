@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ImportSource, Prisma } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { CategorizationService } from '../categorization/categorization.service';
 import { parseDateOnly } from '../common/date-only';
 import { extractXmlFiles } from './archive';
 import { classify, parseIbanList } from './classify';
@@ -21,6 +22,7 @@ export interface ImportFileResult {
   importedCount: number;
   duplicateCount: number;
   ignoredCount: number;
+  categorizedCount: number;
   needsReviewCount: number;
   errors: Prisma.JsonValue;
 }
@@ -38,6 +40,7 @@ export class ImportService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly categorization: CategorizationService,
     config: ConfigService,
   ) {
     this.ownIbans = parseIbanList(config.get<string>('OWN_IBANS'));
@@ -70,6 +73,7 @@ export class ImportService {
         importedCount: 0,
         duplicateCount: existing.totalCount,
         ignoredCount: 0,
+        categorizedCount: 0,
         needsReviewCount: 0,
       };
     }
@@ -116,7 +120,7 @@ export class ImportService {
         ignoreReason,
       };
     });
-    const ignoredCount = rows.filter((r) => r.status === 'IGNORED').length;
+    const classifiedIgnored = rows.filter((r) => r.status === 'IGNORED').length;
 
     const batch = await this.prisma.$transaction(async (tx) => {
       const created = await tx.importBatch.create({
@@ -132,7 +136,7 @@ export class ImportService {
           totalCount: statement.transactions.length,
           importedCount: rows.length,
           duplicateCount: statement.transactions.length - rows.length,
-          ignoredCount,
+          ignoredCount: classifiedIgnored,
           errorCount: statement.errors.length,
           errors: statement.errors as unknown as Prisma.InputJsonValue,
         },
@@ -145,16 +149,43 @@ export class ImportService {
       return created;
     });
 
+    const categorized = await this.categorize(
+      batch.id,
+      rows.length - classifiedIgnored,
+    );
+    const ignoredCount = classifiedIgnored + categorized.ignored;
+    if (categorized.ignored > 0) {
+      await this.prisma.importBatch.update({
+        where: { id: batch.id },
+        data: { ignoredCount },
+      });
+    }
+
     this.logger.log(
       `Imported ${fileName} (${statement.format}): ${rows.length} new, ` +
-        `${batch.duplicateCount} duplicates, ${ignoredCount} ignored, ${statement.errors.length} errors`,
+        `${batch.duplicateCount} duplicates, ${ignoredCount} ignored, ` +
+        `${categorized.categorized} categorized, ${statement.errors.length} errors`,
     );
 
     return {
       ...this.summary(fileName, batch),
       status: 'imported',
-      needsReviewCount: rows.length - ignoredCount,
+      ignoredCount,
+      categorizedCount: categorized.categorized,
+      needsReviewCount: categorized.remaining,
     };
+  }
+
+  // Runs after the import commits, so a failure here leaves transactions in the review inbox.
+  private async categorize(batchId: string, pending: number) {
+    try {
+      return await this.categorization.categorizePending({
+        importBatchId: batchId,
+      });
+    } catch (e) {
+      this.logger.error(`Categorizing batch ${batchId} failed`, e);
+      return { categorized: 0, ignored: 0, remaining: pending };
+    }
   }
 
   private parse(fileName: string, content: Buffer): ParsedStatement {
@@ -173,7 +204,10 @@ export class ImportService {
   private summary(
     fileName: string,
     batch: Prisma.ImportBatchGetPayload<object>,
-  ): Omit<ImportFileResult, 'status' | 'needsReviewCount'> {
+  ): Omit<
+    ImportFileResult,
+    'status' | 'categorizedCount' | 'needsReviewCount'
+  > {
     return {
       fileName,
       batchId: batch.id,
