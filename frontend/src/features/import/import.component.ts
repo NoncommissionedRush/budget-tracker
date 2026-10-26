@@ -10,7 +10,10 @@ import { apiErrorMessage } from '../../shared/utils/api-error';
   imports: [RouterLink],
   template: `
     <div class="max-w-2xl mx-auto px-4 py-6">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Import</h1>
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Import</h1>
+        <a routerLink="/import/history" class="text-sm font-medium text-[var(--color-brand-600)] hover:underline">History</a>
+      </div>
 
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <h2 class="text-lg font-semibold text-gray-900 mb-1">Bank statement</h2>
