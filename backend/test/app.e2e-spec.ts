@@ -19,12 +19,15 @@ describe('Budget API (e2e)', () => {
     category: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     subcategory: { findFirst: jest.fn() },
     expense: { findMany: jest.fn(), create: jest.fn() },
-    importBatch: { findUnique: jest.fn(), create: jest.fn() },
-    bankTransaction: { findMany: jest.fn(), findUnique: jest.fn(), createMany: jest.fn() },
+    importBatch: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
+    bankTransaction: { findMany: jest.fn(), findUnique: jest.fn(), createMany: jest.fn(), groupBy: jest.fn() },
+    mailMessage: { findMany: jest.fn() },
     categorizationRule: { findMany: jest.fn(), create: jest.fn(), aggregate: jest.fn() },
   };
 
   beforeAll(async () => {
+    // Keep a developer's real mailbox settings in .env out of the test run.
+    process.env.IMAP_HOST = '';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
@@ -160,6 +163,31 @@ describe('Budget API (e2e)', () => {
     it('returns 404 for an unknown transaction', async () => {
       prisma.bankTransaction.findUnique.mockResolvedValue(null);
       await request(app.getHttpServer()).post('/api/v1/review/ghost/ignore').send({}).expect(404);
+    });
+  });
+
+  describe('import history', () => {
+    it('reports the mailbox import as disabled without IMAP settings', async () => {
+      prisma.mailMessage.findMany.mockResolvedValue([]);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/import/mail')
+        .expect(200);
+      expect(res.body).toEqual({
+        status: expect.objectContaining({ enabled: false, running: false }),
+        messages: [],
+      });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/import/mail/check')
+        .expect(503);
+    });
+
+    it('lists batches', async () => {
+      prisma.importBatch.findMany.mockResolvedValue([]);
+      prisma.bankTransaction.groupBy.mockResolvedValue([]);
+      await request(app.getHttpServer())
+        .get('/api/v1/import/batches')
+        .expect(200, []);
     });
   });
 });
