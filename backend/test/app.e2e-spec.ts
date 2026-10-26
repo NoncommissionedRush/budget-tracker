@@ -20,7 +20,8 @@ describe('Budget API (e2e)', () => {
     subcategory: { findFirst: jest.fn() },
     expense: { findMany: jest.fn(), create: jest.fn() },
     importBatch: { findUnique: jest.fn(), create: jest.fn() },
-    bankTransaction: { findMany: jest.fn(), createMany: jest.fn() },
+    bankTransaction: { findMany: jest.fn(), findUnique: jest.fn(), createMany: jest.fn() },
+    categorizationRule: { findMany: jest.fn(), create: jest.fn(), aggregate: jest.fn() },
   };
 
   beforeAll(async () => {
@@ -128,5 +129,37 @@ describe('Budget API (e2e)', () => {
         .post('/api/v1/import/upload')
         .attach('file', Buffer.from('hello'), 'notes.txt')
         .expect(400));
+  });
+
+  describe('rules and review', () => {
+    it('creates a rule', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'cat' });
+      prisma.categorizationRule.aggregate.mockResolvedValue({ _max: { priority: null } });
+      prisma.categorizationRule.create.mockImplementation(({ data }) => ({ id: 'r1', ...data }));
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/rules')
+        .send({ field: 'COUNTERPARTY_NAME', pattern: 'Coffee', categoryId: 'cat' })
+        .expect(201);
+      expect(res.body).toMatchObject({ id: 'r1', priority: 0, matchType: 'CONTAINS' });
+    });
+
+    it('rejects an unknown rule field', () =>
+      request(app.getHttpServer())
+        .post('/api/v1/rules')
+        .send({ field: 'AMOUNT', pattern: 'x', categoryId: 'cat' })
+        .expect(400));
+
+    it('validates the "always do this" rule of a correction', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/review/t1/categorize')
+        .send({ categoryId: 'cat', rule: { matchType: 'REGEX' } })
+        .expect(400);
+      expect(prisma.bankTransaction.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an unknown transaction', async () => {
+      prisma.bankTransaction.findUnique.mockResolvedValue(null);
+      await request(app.getHttpServer()).post('/api/v1/review/ghost/ignore').send({}).expect(404);
+    });
   });
 });

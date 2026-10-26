@@ -7,6 +7,7 @@ export interface ImportFileResult {
   importedCount: number;
   duplicateCount: number;
   ignoredCount: number;
+  categorizedCount: number;
   needsReviewCount: number;
   errors: { entryRef: string | null; message: string }[];
 }

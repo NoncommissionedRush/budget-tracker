@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { TextReader, Uint8ArrayWriter, ZipWriter } from '@zip.js/zip.js';
 import { PrismaService } from '../prisma/prisma.service';
+import { CategorizationService } from '../categorization/categorization.service';
 import { ImportService } from './import.service';
 
 const fixture = readFileSync(
@@ -13,10 +14,15 @@ const OWN = 'SK0099000000000000000001';
 
 describe('ImportService', () => {
   let prisma: {
-    importBatch: { findUnique: jest.Mock; create: jest.Mock };
+    importBatch: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     bankTransaction: { findMany: jest.Mock; createMany: jest.Mock };
     $transaction: jest.Mock;
   };
+  let categorization: { categorizePending: jest.Mock };
   let service: ImportService;
 
   beforeEach(() => {
@@ -26,6 +32,7 @@ describe('ImportService', () => {
         create: jest.fn(({ data }) =>
           Promise.resolve({ id: 'batch-1', ...data }),
         ),
+        update: jest.fn(),
       },
       bankTransaction: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -36,7 +43,16 @@ describe('ImportService', () => {
     const config = {
       get: () => 'SK00 9900 0000 0000 0000 0003',
     } as unknown as ConfigService;
-    service = new ImportService(prisma as unknown as PrismaService, config);
+    categorization = {
+      categorizePending: jest
+        .fn()
+        .mockResolvedValue({ categorized: 0, ignored: 0, remaining: 4 }),
+    };
+    service = new ImportService(
+      prisma as unknown as PrismaService,
+      categorization as unknown as CategorizationService,
+      config,
+    );
   });
 
   const rows = () => prisma.bankTransaction.createMany.mock.calls[0][0].data;
@@ -68,6 +84,37 @@ describe('ImportService', () => {
     });
     expect(rows()).toHaveLength(8);
     expect(rows().every((r: any) => r.importBatchId === 'batch-1')).toBe(true);
+  });
+
+  it('categorizes the new transactions and reports what is left for review', async () => {
+    categorization.categorizePending.mockResolvedValue({
+      categorized: 2,
+      ignored: 1,
+      remaining: 1,
+    });
+    const { files } = await service.importUpload('statement.xml', fixture);
+    expect(categorization.categorizePending).toHaveBeenCalledWith({
+      importBatchId: 'batch-1',
+    });
+    expect(files[0]).toMatchObject({
+      categorizedCount: 2,
+      ignoredCount: 5,
+      needsReviewCount: 1,
+    });
+    expect(prisma.importBatch.update).toHaveBeenCalledWith({
+      where: { id: 'batch-1' },
+      data: { ignoredCount: 5 },
+    });
+  });
+
+  it('keeps the import when categorization fails', async () => {
+    categorization.categorizePending.mockRejectedValue(new Error('boom'));
+    const { files } = await service.importUpload('statement.xml', fixture);
+    expect(files[0]).toMatchObject({
+      status: 'imported',
+      categorizedCount: 0,
+      needsReviewCount: 4,
+    });
   });
 
   it('marks credits, reversals and own transfers ignored and debits for review', async () => {

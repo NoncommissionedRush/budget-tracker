@@ -1,10 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ImportService } from '../../services/import.service';
 import { ImportFileResult } from '../../core/models/import.model';
+import { apiErrorMessage } from '../../shared/utils/api-error';
 
 @Component({
   selector: 'app-import',
+  imports: [RouterLink],
   template: `
     <div class="max-w-2xl mx-auto px-4 py-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-6">Import</h1>
@@ -63,10 +66,14 @@ import { ImportFileResult } from '../../core/models/import.model';
               <span class="text-xs font-medium px-2 py-1 rounded-lg bg-green-50 text-green-700">Imported</span>
             }
           </div>
-          <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <dl class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
             <div class="rounded-xl bg-gray-50 p-3">
               <dt class="text-xs text-gray-500">New</dt>
               <dd class="text-lg font-semibold text-gray-900">{{ result.importedCount }}</dd>
+            </div>
+            <div class="rounded-xl bg-gray-50 p-3">
+              <dt class="text-xs text-gray-500">Categorized</dt>
+              <dd class="text-lg font-semibold text-gray-900">{{ result.categorizedCount }}</dd>
             </div>
             <div class="rounded-xl bg-gray-50 p-3">
               <dt class="text-xs text-gray-500">To review</dt>
@@ -81,6 +88,12 @@ import { ImportFileResult } from '../../core/models/import.model';
               <dd class="text-lg font-semibold text-gray-900">{{ result.duplicateCount }}</dd>
             </div>
           </dl>
+          @if (result.needsReviewCount > 0) {
+            <a routerLink="/review"
+              class="mt-4 block text-center text-sm font-medium text-[var(--color-brand-600)] hover:underline">
+              Review {{ result.needsReviewCount }} transaction{{ result.needsReviewCount === 1 ? '' : 's' }} →
+            </a>
+          }
           @if (result.errors.length) {
             <ul class="mt-4 text-sm text-red-600 list-disc pl-5">
               @for (e of result.errors; track $index) {
@@ -121,10 +134,7 @@ export class ImportComponent {
         this.uploading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        const message = err.error?.message;
-        this.error.set(
-          (Array.isArray(message) ? message.join(', ') : message) ?? 'Import failed',
-        );
+        this.error.set(apiErrorMessage(err, 'Import failed'));
         this.uploading.set(false);
       },
     });
