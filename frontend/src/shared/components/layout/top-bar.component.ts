@@ -25,6 +25,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
             Expenses
           </a>
+          <a routerLink="/import" routerLinkActive="bg-[var(--color-brand-50)] text-[var(--color-brand-600)]"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+            Import
+          </a>
           <a routerLink="/setup" routerLinkActive="bg-[var(--color-brand-50)] text-[var(--color-brand-600)]"
             class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
             Setup
