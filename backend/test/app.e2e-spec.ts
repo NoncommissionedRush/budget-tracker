@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as request from 'supertest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/configure-app';
 import { PrismaService } from './../src/prisma/prisma.service';
@@ -17,6 +19,8 @@ describe('Budget API (e2e)', () => {
     category: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     subcategory: { findFirst: jest.fn() },
     expense: { findMany: jest.fn(), create: jest.fn() },
+    importBatch: { findUnique: jest.fn(), create: jest.fn() },
+    bankTransaction: { findMany: jest.fn(), createMany: jest.fn() },
   };
 
   beforeAll(async () => {
@@ -95,5 +99,34 @@ describe('Budget API (e2e)', () => {
       .patch('/api/v1/categories/c1')
       .send({ name: 'Food' })
       .expect(404);
+  });
+
+  describe('POST /api/v1/import/upload', () => {
+    const fixture = readFileSync(
+      join(__dirname, '../src/import/parsers/__fixtures__/camt053-synthetic.xml'),
+    );
+
+    it('imports an uploaded XML statement', async () => {
+      prisma.importBatch.findUnique.mockResolvedValue(null);
+      prisma.importBatch.create.mockImplementation(({ data }) => ({ id: 'b1', ...data }));
+      prisma.bankTransaction.findMany.mockResolvedValue([]);
+      prisma.bankTransaction.createMany.mockResolvedValue({ count: 8 });
+      prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/import/upload')
+        .attach('file', fixture, 'statement.xml')
+        .expect(200);
+      expect(res.body.files[0]).toMatchObject({ status: 'imported', importedCount: 8 });
+    });
+
+    it('returns 400 without a file', () =>
+      request(app.getHttpServer()).post('/api/v1/import/upload').field('password', 'x').expect(400));
+
+    it('returns 400 for a non-statement file', () =>
+      request(app.getHttpServer())
+        .post('/api/v1/import/upload')
+        .attach('file', Buffer.from('hello'), 'notes.txt')
+        .expect(400));
   });
 });

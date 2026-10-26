@@ -5,6 +5,8 @@ export interface Expense {
   amount: string;
   description: string;
   expenseDate: string;
+  source?: 'MANUAL' | 'IMPORT';
+  bankTransactionId?: string | null;
   createdAt: string;
   category?: {
     id: string;
