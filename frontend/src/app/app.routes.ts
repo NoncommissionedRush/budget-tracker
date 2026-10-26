@@ -28,6 +28,22 @@ export const routes: Routes = [
         title: 'Expenses',
       },
       {
+        path: 'review',
+        loadComponent: () =>
+          import('../features/review/review.component').then(
+            (m) => m.ReviewComponent
+          ),
+        title: 'Review',
+      },
+      {
+        path: 'rules',
+        loadComponent: () =>
+          import('../features/rules/rules.component').then(
+            (m) => m.RulesComponent
+          ),
+        title: 'Rules',
+      },
+      {
         path: 'import',
         loadComponent: () =>
           import('../features/import/import.component').then(
