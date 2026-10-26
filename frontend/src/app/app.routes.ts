@@ -28,6 +28,14 @@ export const routes: Routes = [
         title: 'Expenses',
       },
       {
+        path: 'import',
+        loadComponent: () =>
+          import('../features/import/import.component').then(
+            (m) => m.ImportComponent
+          ),
+        title: 'Import',
+      },
+      {
         path: 'setup',
         loadComponent: () =>
           import('../features/setup/setup.component').then(
