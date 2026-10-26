@@ -1,31 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Decimal from 'decimal.js';
-import {
-  getDaysInMonth,
-  differenceInDays,
-  format,
-  startOfDay,
-} from 'date-fns';
+import { formatDateOnly, todayDateOnly } from '../common/date-only';
+import { calculatePeriod } from './period';
 
 type CategoryStatus = 'ok' | 'warning' | 'over';
-
-interface PeriodBoundaries {
-  periodStart: Date;
-  periodEnd: Date;
-  daysInPeriod: number;
-  daysElapsed: number;
-  daysRemaining: number;
-}
 
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboard(year?: number, month?: number) {
-    const today = startOfDay(new Date());
-    const targetYear = year ?? today.getFullYear();
-    const targetMonth = month ?? today.getMonth() + 1; // 1-indexed
+    const today = todayDateOnly();
 
     const incomeConfig = await this.prisma.incomeConfig.findFirst();
     if (!incomeConfig) {
@@ -37,12 +23,7 @@ export class DashboardService {
       };
     }
 
-    const period = this.calculatePeriodBoundaries(
-      today,
-      incomeConfig.incomeDay,
-      targetYear,
-      targetMonth,
-    );
+    const period = calculatePeriod(today, incomeConfig.incomeDay, year, month);
 
     const categories = await this.prisma.category.findMany({
       where: { isActive: true },
@@ -88,10 +69,10 @@ export class DashboardService {
       const catExpenses = expensesByCategory.get(category.id) ?? [];
 
       // A category is active this period if activeMonths is empty (= every month)
-      // or if the period's calendar month is listed in activeMonths.
+      // or if the month the period starts in is listed in activeMonths.
       const isActiveThisPeriod =
         category.activeMonths.length === 0 ||
-        category.activeMonths.includes(targetMonth);
+        category.activeMonths.includes(period.month);
 
       // Use the real allocated amount only when active; zero otherwise.
       const allocated = isActiveThisPeriod
@@ -155,7 +136,7 @@ export class DashboardService {
           subcategoryId: e.subcategoryId ?? null,
           amount: new Decimal(e.amount.toString()).toFixed(2),
           description: e.description,
-          expenseDate: format(e.expenseDate, 'yyyy-MM-dd'),
+          expenseDate: formatDateOnly(e.expenseDate),
           createdAt: e.createdAt.toISOString(),
         })),
       };
@@ -171,11 +152,11 @@ export class DashboardService {
 
     return {
       period: {
-        year: targetYear,
-        month: targetMonth,
-        periodStart: format(period.periodStart, 'yyyy-MM-dd'),
-        periodEnd: format(period.periodEnd, 'yyyy-MM-dd'),
-        today: format(today, 'yyyy-MM-dd'),
+        year: period.year,
+        month: period.month,
+        periodStart: formatDateOnly(period.periodStart),
+        periodEnd: formatDateOnly(period.periodEnd),
+        today: formatDateOnly(today),
         daysInPeriod: period.daysInPeriod,
         daysElapsed: period.daysElapsed,
         daysRemaining: period.daysRemaining,
@@ -196,50 +177,6 @@ export class DashboardService {
       },
       categories: categorySummaries,
     };
-  }
-
-  private calculatePeriodBoundaries(
-    today: Date,
-    incomeDay: number,
-    _targetYear: number,
-    _targetMonth: number,
-  ): PeriodBoundaries {
-    const year = today.getFullYear();
-    const month = today.getMonth(); // 0-indexed
-
-    // Clamp incomeDay to days in current month
-    const daysInCurrent = getDaysInMonth(new Date(year, month, 1));
-    const effectiveDay = Math.min(incomeDay, daysInCurrent);
-    const incomeThisMonth = new Date(year, month, effectiveDay);
-
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    if (today >= incomeThisMonth) {
-      // Period started this month
-      periodStart = incomeThisMonth;
-      const nextMonthIdx = (month + 1) % 12;
-      const nextYear = month === 11 ? year + 1 : year;
-      const daysInNext = getDaysInMonth(new Date(nextYear, nextMonthIdx, 1));
-      const effectiveDayNext = Math.min(incomeDay, daysInNext);
-      // Period ends day before next income
-      periodEnd = new Date(nextYear, nextMonthIdx, effectiveDayNext - 1);
-    } else {
-      // Period started last month
-      const prevMonthIdx = month === 0 ? 11 : month - 1;
-      const prevYear = month === 0 ? year - 1 : year;
-      const daysInPrev = getDaysInMonth(new Date(prevYear, prevMonthIdx, 1));
-      const effectiveDayPrev = Math.min(incomeDay, daysInPrev);
-      periodStart = new Date(prevYear, prevMonthIdx, effectiveDayPrev);
-      // Period ends day before income this month
-      periodEnd = new Date(year, month, effectiveDay - 1);
-    }
-
-    const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
-    const daysElapsed = Math.max(0, differenceInDays(today, periodStart));
-    const daysRemaining = Math.max(0, differenceInDays(periodEnd, today));
-
-    return { periodStart, periodEnd, daysInPeriod, daysElapsed, daysRemaining };
   }
 
   private projectSpend(
