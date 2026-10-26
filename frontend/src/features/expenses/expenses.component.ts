@@ -6,6 +6,7 @@ import { BudgetStateService } from '../../services/budget-state.service';
 import { CurrencyEurPipe } from '../../shared/pipes/currency-format.pipe';
 import { Expense, PaginatedExpenses } from '../../core/models/expense.model';
 import { SubcategorySummary } from '../../core/models/dashboard.model';
+import { localDateString, localDateStringFromToday } from '../../shared/utils/local-date';
 
 const ICON_PATHS: Record<string, string> = {
   home: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25',
@@ -382,7 +383,7 @@ export class ExpensesComponent implements OnInit {
     categoryId: ['', Validators.required],
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     description: ['', Validators.required],
-    expenseDate: [new Date().toISOString().split('T')[0], Validators.required],
+    expenseDate: [localDateString(), Validators.required],
   });
 
   /** Subcategories for the selected category, with isPaid from dashboard state */
@@ -467,8 +468,8 @@ export class ExpensesComponent implements OnInit {
     const expenses = this.filteredExpenses();
     if (expenses.length === 0) return [];
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = localDateString();
+    const yesterday = localDateStringFromToday(-1);
 
     const grouped = new Map<string, Expense[]>();
     for (const e of expenses) {
@@ -546,7 +547,7 @@ export class ExpensesComponent implements OnInit {
     this._descriptionQuery.set('');
     this.showSuggestions.set(false);
     this.expenseForm.reset({
-      expenseDate: new Date().toISOString().split('T')[0],
+      expenseDate: localDateString(),
     });
     this.showForm.set(true);
   }
@@ -573,7 +574,7 @@ export class ExpensesComponent implements OnInit {
     this.selectedSubcategoryId.set(null);
     this._descriptionQuery.set('');
     this.showSuggestions.set(false);
-    this.expenseForm.reset({ expenseDate: new Date().toISOString().split('T')[0] });
+    this.expenseForm.reset({ expenseDate: localDateString() });
   }
 
   saveExpense() {
@@ -636,8 +637,8 @@ export class ExpensesComponent implements OnInit {
   }
 
   formatDate(dateStr: string): string {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = localDateString();
+    const yesterday = localDateStringFromToday(-1);
     if (dateStr === today) return 'Today';
     if (dateStr === yesterday) return 'Yesterday';
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {

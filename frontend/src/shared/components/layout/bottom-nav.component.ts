@@ -6,7 +6,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   imports: [RouterLink, RouterLinkActive],
   template: `
     <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100">
-      <div class="grid grid-cols-3 h-16">
+      <div class="grid grid-cols-5 h-16">
         <a routerLink="/dashboard" routerLinkActive="text-[var(--color-brand-500)]"
           class="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -20,6 +20,20 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
           <span class="text-[10px] font-medium">Expenses</span>
+        </a>
+        <a routerLink="/review" routerLinkActive="text-[var(--color-brand-500)]"
+          class="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+          </svg>
+          <span class="text-[10px] font-medium">Review</span>
+        </a>
+        <a routerLink="/import" routerLinkActive="text-[var(--color-brand-500)]"
+          class="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <span class="text-[10px] font-medium">Import</span>
         </a>
         <a routerLink="/setup" routerLinkActive="text-[var(--color-brand-500)]"
           class="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors">

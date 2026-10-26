@@ -5,6 +5,8 @@ import { IncomeModule } from './income/income.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ImportModule } from './import/import.module';
+import { CategorizationModule } from './categorization/categorization.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CategoriesModule,
     ExpensesModule,
     DashboardModule,
+    ImportModule,
+    CategorizationModule,
   ],
 })
 export class AppModule {}

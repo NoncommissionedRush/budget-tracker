@@ -30,6 +30,7 @@ model Category {
   updatedAt       DateTime      @updatedAt
   expenses        Expense[]
   subcategories   Subcategory[]
+  rules           CategorizationRule[]
 
   @@map("categories")
 }
@@ -45,24 +46,151 @@ model Subcategory {
   updatedAt  DateTime  @updatedAt
   category   Category  @relation(fields: [categoryId], references: [id])
   expenses   Expense[]
+  rules      CategorizationRule[]
 
   @@index([categoryId])
   @@map("subcategories")
 }
 
 model Expense {
-  id            String       @id @default(cuid())
-  categoryId    String
-  subcategoryId String?
-  amount        Decimal      @db.Decimal(12, 2)
-  description   String
-  expenseDate   DateTime     @db.Date
-  createdAt     DateTime     @default(now())
-  category      Category     @relation(fields: [categoryId], references: [id])
-  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  id                String           @id @default(cuid())
+  categoryId        String
+  subcategoryId     String?
+  amount            Decimal          @db.Decimal(12, 2)
+  description       String
+  expenseDate       DateTime         @db.Date
+  createdAt         DateTime         @default(now())
+  source            ExpenseSource    @default(MANUAL)
+  bankTransactionId String?          @unique
+  category          Category         @relation(fields: [categoryId], references: [id])
+  subcategory       Subcategory?     @relation(fields: [subcategoryId], references: [id])
+  bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id])
 
   @@index([categoryId])
   @@index([subcategoryId])
   @@index([expenseDate])
   @@map("expenses")
+}
+
+enum ExpenseSource {
+  MANUAL
+  IMPORT
+}
+
+enum ImportSource {
+  UPLOAD
+  EMAIL
+}
+
+enum TransactionDirection {
+  DEBIT
+  CREDIT
+}
+
+enum BankTransactionStatus {
+  CATEGORIZED
+  NEEDS_REVIEW
+  IGNORED
+}
+
+model ImportBatch {
+  id               String            @id @default(cuid())
+  source           ImportSource
+  messageId        String?
+  fileName         String?
+  fileHash         String            @unique
+  format           String
+  statementId      String?
+  accountIban      String?
+  receivedAt       DateTime          @default(now())
+  totalCount       Int               @default(0)
+  importedCount    Int               @default(0)
+  duplicateCount   Int               @default(0)
+  ignoredCount     Int               @default(0)
+  errorCount       Int               @default(0)
+  errors           Json              @default("[]")
+  createdAt        DateTime          @default(now())
+  bankTransactions BankTransaction[]
+
+  @@index([messageId])
+  @@map("import_batches")
+}
+
+model BankTransaction {
+  id                String                @id @default(cuid())
+  importBatchId     String
+  bankTransactionId String                @unique
+  accountIban       String?
+  bookingDate       DateTime              @db.Date
+  valueDate         DateTime?             @db.Date
+  transactionDate   DateTime?             @db.Date
+  amount            Decimal               @db.Decimal(12, 2)
+  currency          String
+  direction         TransactionDirection
+  counterpartyName  String?
+  counterpartyIban  String?
+  variableSymbol    String?
+  constantSymbol    String?
+  specificSymbol    String?
+  description       String?
+  bankTxCode        String?
+  status            BankTransactionStatus
+  ignoreReason      String?
+  categorizedBy     CategorizationMethod?
+  ruleId            String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  importBatch       ImportBatch           @relation(fields: [importBatchId], references: [id])
+  rule              CategorizationRule?   @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  expense           Expense?
+
+  @@index([importBatchId])
+  @@index([status])
+  @@index([bookingDate])
+  @@map("bank_transactions")
+}
+
+enum CategorizationMethod {
+  RULE
+  HISTORY
+  BILL
+  MANUAL
+}
+
+enum RuleField {
+  COUNTERPARTY_IBAN
+  COUNTERPARTY_NAME
+  DESCRIPTION
+  VARIABLE_SYMBOL
+}
+
+enum RuleMatchType {
+  EQUALS
+  CONTAINS
+}
+
+enum RuleAction {
+  CATEGORIZE
+  IGNORE
+}
+
+model CategorizationRule {
+  id               String            @id @default(cuid())
+  field            RuleField?
+  matchType        RuleMatchType     @default(CONTAINS)
+  pattern          String?
+  amountMin        Decimal?          @db.Decimal(12, 2)
+  amountMax        Decimal?          @db.Decimal(12, 2)
+  action           RuleAction        @default(CATEGORIZE)
+  categoryId       String?
+  subcategoryId    String?
+  priority         Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  category         Category?         @relation(fields: [categoryId], references: [id])
+  subcategory      Subcategory?      @relation(fields: [subcategoryId], references: [id])
+  bankTransactions BankTransaction[]
+
+  @@index([priority])
+  @@map("categorization_rules")
 }
