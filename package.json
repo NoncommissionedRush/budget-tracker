@@ -1,0 +1,7 @@
+{
+  "name": "budget",
+  "private": true,
+  "scripts": {
+    "serve:phone": "npm --prefix frontend run build && npm --prefix backend run build && cd backend && npx prisma migrate deploy && npm run start:prod"
+  }
+}
